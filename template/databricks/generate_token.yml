@@ -14,6 +14,9 @@ parameters:
 - name: databricks_workspace_url
   type: string
   defaukt: databricks_workspace_url
+- name: databricks_region
+  type: string
+  default: databricks_region
 
 
 steps:
@@ -32,7 +35,7 @@ steps:
 
     management_access_token=$(curl -X GET -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=client_credentials&client_id=$client_id&resource=$url_management&client_secret=$client_secret" https://login.microsoftonline.com/$tenant_id/oauth2/token | jq -r '.access_token')
 
-    token=$(curl -X POST "https://francecentral.azuredatabricks.net/api/2.0/token/create" \
+    token=$(curl -X POST "https://${{ parameters.databricks_region }}.azuredatabricks.net/api/2.0/token/create" \
          -H "Authorization: Bearer $access_token" \
          -H "X-Databricks-Azure-Workspace-Resource-Id: $azure_workspace_resource_id" \
          -H "X-Databricks-Azure-SP-Management-Token: $management_access_token" \
