@@ -1,0 +1,53 @@
+parameters:
+- name: service_principal_id
+  type: string
+  default: service_principal_id
+- name: service_principal_secret
+  type: string
+  default: service_principal_secret
+- name: tenant_id
+  type: string
+  default: tenant_id
+- name: azure_workspace_resource_id
+  type: string
+  default: azure_workspace_resource_id
+- name: databricks_workspace_url
+  type: string
+  defaukt: databricks_workspace_url
+
+
+steps:
+- bash: |
+    ##install databricks cli##
+    pip install databricks-cli
+
+    azure_databricks_resource_id="2ff814a6-3304-4ab8-85cb-cd0e6f879c1d" #It represents the programmatic ID for Azure Databricks, do not change it !!!!!
+    url_management="https://management.core.windows.net/"
+    client_id=${{ parameters.service_principal_id }}
+    client_secret=${{ parameters.service_principal_secret }}
+    tenant_id=${{ parameters.tenant_id }}
+    azure_workspace_resource_id=${{ parameters.azure_workspace_resource_id }}
+
+    access_token=$(curl -X GET -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=client_credentials&client_id=$client_id&resource=$azure_databricks_resource_id&client_secret=$client_secret" https://login.microsoftonline.com/$tenant_id/oauth2/token | jq -r '.access_token')
+
+    management_access_token=$(curl -X GET -H "Content-Type: application/x-www-form-urlencoded" -d "grant_type=client_credentials&client_id=$client_id&resource=$url_management&client_secret=$client_secret" https://login.microsoftonline.com/$tenant_id/oauth2/token | jq -r '.access_token')
+
+    token=$(curl -X POST "https://francecentral.azuredatabricks.net/api/2.0/token/create" \
+         -H "Authorization: Bearer $access_token" \
+         -H "X-Databricks-Azure-Workspace-Resource-Id: $azure_workspace_resource_id" \
+         -H "X-Databricks-Azure-SP-Management-Token: $management_access_token" \
+         --data-raw '{
+           "lifetime_seconds": 300,
+           "comment": "temporary access token"
+         }' | jq -r '.token_value')
+
+    ##generate databrickscfg##
+    cat <<EOF > ~/databrickscfg
+    [DEFAULT]
+    host = ${{ parameters.databricks_workspace_url }}
+    token = $token
+    EOF
+
+    export DATABRICKS_CONFIG_FILE=~/databrickscfg
+    
+  displayName: "Generate access to databricks"
